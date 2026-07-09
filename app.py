@@ -13,7 +13,9 @@ frame.grid()
 
 selectedpacks = []
 selpacksui = tk.StringVar(value="")
-commojangpath = fr"{os.path.expandvars(r"%appdata%")}AppData\Roaming\Minecraft Bedrock\Users\Shared\games\com.mojang"
+appdata = os.path.expandvars(r"%appdata%")
+defaultcmpath = r"Minecraft Bedrock\Users\Shared\games\com.mojang"
+commojangpath = os.path.join(appdata, defaultcmpath)
 pathforui = tk.StringVar(value=commojangpath)
 
 
@@ -27,7 +29,7 @@ def choosepacks():
         selectedpacks.append(packpaths)
         selectedpacksforui = selpacksui.get()
         selpacksui.set(f"{selectedpacksforui}\n{os.path.basename(packpaths)}")
-ttk.Button(frame, text="select packs to import",command=choosepacks).grid(column=1, row=2)
+ttk.Button(frame, text="select packs to import",command=choosepacks).grid(column=1, row=4)
 ttk.Label(frame, textvariable=selpacksui).grid(column=1, row=3)
 def setcommojangpath():
     commjng = filedialog.askdirectory(
@@ -40,54 +42,69 @@ def setcommojangpath():
     global commojangpath
     commojangpath = commjng
     pathforui.set(commjng)
-ttk.Button(frame, text="select com.mojang", command=setcommojangpath).grid(column=1, row=4)
+ttk.Button(frame, text="select com.mojang", command=setcommojangpath).grid(column=1, row=2)
 def cprint(text: str):
     oldoutput = output.get()
     output.set(f"{oldoutput}\n{text}")
 
 def findmanifest(folderpath: str):
-    for root , folders, files in os.walk(folderpath):
+    for root , _, files in os.walk(folderpath):
         for file in files:
             if file == "manifest.json":
-                packname = os.path.dirname(file)
-                return os.path.join(root, file), packname
+                return os.path.join(root, file), root
 
 def importpacks():
     output.set("\r")
     startedziptime = time.time()
-    for zipname in selectedpacks:
-        with zipfile.ZipFile(zipname) as zf:
-            puuid = os.path.join("temp", str(uuid.uuid4()))
-            starttime = time.time()
-            cprint(f"started importing {os.path.basename(zipname)}")
-            zf.extractall(puuid)
-            manifest, manifestdir = findmanifest(puuid)
-            with open(manifest, "r") as manifestjson:
-                manifest = json.load(manifestjson)
-            packtype = False
-            for i in manifest["modules"]:
-                if i in ("data", "resource", "skin_pack", "world_template"):
-                    packtype = i
+    try:
+        for zipname in selectedpacks:
+            with zipfile.ZipFile(zipname) as zf:
+                setuuid = uuid.uuid4()
+                puuid = os.path.join("temp", str(setuuid))
+                starttime = time.time()
+                cprint(f"started importing {os.path.basename(zipname)}")
+                zf.extractall(puuid)
+                manifest, manifestdir = findmanifest(puuid)
+                with open(manifest, "r") as manifestjson:
+                    manifest = json.load(manifestjson)
+                packtype = False
+                for i in manifest.get("modules", []):
+                    mtype = i.get("type")
+                    if mtype in ("data", "resources", "skin_pack", "world_template"):
+                        packtype = mtype
 
-            if packtype:
-                behavior_packdir = os.path.join(commojangpath, "behavior_packs")
-                resource_packdir = os.path.join(commojangpath, "resource_packs")
-                skin_packdir = os.path.join(commojangpath, "skin_packs")
-                world_templatesdir = os.path.join(commojangpath, "world_templates")
-                if packtype == "data":
-                    shutil.move(manifestdir, behavior_packdir)
-                elif packtype == "resource":
-                    shutil.move(manifestdir, resource_packdir)
-                elif packtype == "skin_pack":
-                    shutil.move(manifestdir, skin_packdir)
-                elif packtype == "world_template":
-                    shutil.move(manifestdir, world_templatesdir)
+                if packtype:
+                    behavior_packdir = os.path.join(commojangpath, "behavior_packs")
+                    resource_packdir = os.path.join(commojangpath, "resource_packs")
+                    skin_packdir = os.path.join(commojangpath, "skin_packs")
+                    world_templatesdir = os.path.join(commojangpath, "world_templates")
+                    if packtype == "data":
+                        cprint("behavior pack detected")
+                        dest = os.path.join(behavior_packdir, str(setuuid))
+                        shutil.move(manifestdir, dest)
+                    elif packtype == "resources":
+                        cprint("resource pack detected")
+                        dest = os.path.join(resource_packdir, str(setuuid))
+                        shutil.move(manifestdir, dest)
+                    elif packtype == "skin_pack":
+                        cprint("skin pack detected")
+                        dest = os.path.join(skin_packdir, str(setuuid))
+                        shutil.move(manifestdir, dest)
+                    elif packtype == "world_template":
+                        cprint("world template detected")
+                        dest = os.path.join(world_templatesdir, str(setuuid))
+                        shutil.move(manifestdir, dest)
+if os.path.exists(puuid):
+                    shutil.rmtree(puuid)
 
-            print(f"{puuid}\n {os.path.basename(zipname)} finished in {abs(starttime - time.time())}")
-            cprint(f"{os.path.basename(zipname)} finished in {abs(starttime - time.time()):.3f} seconds")
-    selectedpacks.clear()
-    selpacksui.set("")
-    cprint(f"finished in {abs(startedziptime - time.time()):.2f} seconds")
+                print(f"{puuid}\n {os.path.basename(zipname)} finished in {abs(starttime - time.time())}")
+                cprint(f"{os.path.basename(zipname)} finished in {abs(starttime - time.time()):.3f} seconds")
+        selectedpacks.clear()
+        selpacksui.set("")
+        cprint(f"finished in {abs(startedziptime - time.time()):.2f} seconds")
+    except Exception as e:
+        cprint(str(e))
+        print(e)
 
 def startimportpacksthread():
     threading.Thread(target=importpacks, daemon=True).start()
