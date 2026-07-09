@@ -95,8 +95,8 @@ def importpacks():
                         cprint("world template detected")
                         dest = os.path.join(world_templatesdir, str(setuuid))
                         shutil.move(manifestdir, dest)
-                    if os.path.exists(puuid):
-                        shutil.rmtree(puuid)
+                    if os.path.exists("temp"):
+                        shutil.rmtree("temp")
 
                 print(f"{puuid}\n {os.path.basename(zipname)} finished in {abs(starttime - time.time())}")
                 cprint(f"{os.path.basename(zipname)} finished in {abs(starttime - time.time()):.3f} seconds")
