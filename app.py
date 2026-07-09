@@ -8,6 +8,7 @@ import json
 
 root = Tk()
 root.resizable(False, False)
+root.title("MCBE importer")
 frame = ttk.Frame(root, padding=10)
 frame.grid()
 
