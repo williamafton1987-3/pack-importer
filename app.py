@@ -1,5 +1,4 @@
 from tkinter import *
-from tkinter.ttk import *
 from tkinter import ttk, filedialog
 import tkinter as tk
 import os, uuid, time
@@ -44,15 +43,22 @@ def setcommojangpath():
     commojangpath = commjng
     pathforui.set(commjng)
 ttk.Button(frame, text="select com.mojang", command=setcommojangpath).grid(column=1, row=2)
+
 def cprint(text: str):
     oldoutput = output.get()
-    output.set(f"{oldoutput}\n{text}")
+    if oldoutput == "":
+        output.set(f"{text}")
+    else:
+        output.set(f"{oldoutput}\n{text}")
 
 def findmanifest(folderpath: str):
+    manifests = []
     for root , _, files in os.walk(folderpath):
         for file in files:
             if file == "manifest.json":
-                return os.path.join(root, file), root
+                manifests.append((os.path.join(root, file), root))
+    return manifests
+
 
 def importpacks():
     output.set("\r")
@@ -65,36 +71,39 @@ def importpacks():
                 starttime = time.time()
                 cprint(f"started importing {os.path.basename(zipname)}")
                 zf.extractall(puuid)
-                manifest, manifestdir = findmanifest(puuid)
-                with open(manifest, "r") as manifestjson:
-                    manifest = json.load(manifestjson)
-                packtype = False
-                for i in manifest.get("modules", []):
-                    mtype = i.get("type")
-                    if mtype in ("data", "resources", "skin_pack", "world_template"):
-                        packtype = mtype
+                packsfound = findmanifest(puuid)
+                for manifest, manifestdir in packsfound:
+                    with open(manifest, "r") as manifestjson:
+                        manifest = json.load(manifestjson)
 
-                if packtype:
-                    behavior_packdir = os.path.join(commojangpath, "behavior_packs")
-                    resource_packdir = os.path.join(commojangpath, "resource_packs")
-                    skin_packdir = os.path.join(commojangpath, "skin_packs")
-                    world_templatesdir = os.path.join(commojangpath, "world_templates")
-                    if packtype == "data":
-                        cprint("behavior pack detected")
-                        dest = os.path.join(behavior_packdir, str(setuuid))
-                        shutil.move(manifestdir, dest)
-                    elif packtype == "resources":
-                        cprint("resource pack detected")
-                        dest = os.path.join(resource_packdir, str(setuuid))
-                        shutil.move(manifestdir, dest)
-                    elif packtype == "skin_pack":
-                        cprint("skin pack detected")
-                        dest = os.path.join(skin_packdir, str(setuuid))
-                        shutil.move(manifestdir, dest)
-                    elif packtype == "world_template":
-                        cprint("world template detected")
-                        dest = os.path.join(world_templatesdir, str(setuuid))
-                        shutil.move(manifestdir, dest)
+                    packtype = False
+                    for i in manifest.get("modules", []):
+                        mtype = i.get("type")
+                        if mtype in ("data", "resources", "skin_pack", "world_template"):
+                            packtype = mtype
+                            break
+
+                    if packtype:
+                        behavior_packdir = os.path.join(commojangpath, "behavior_packs")
+                        resource_packdir = os.path.join(commojangpath, "resource_packs")
+                        skin_packdir = os.path.join(commojangpath, "skin_packs")
+                        world_templatesdir = os.path.join(commojangpath, "world_templates")
+                        if packtype == "data":
+                            cprint("behavior pack detected")
+                            dest = os.path.join(behavior_packdir, str(setuuid))
+                            shutil.move(manifestdir, dest)
+                        elif packtype == "resources":
+                            cprint("resource pack detected")
+                            dest = os.path.join(resource_packdir, str(setuuid))
+                            shutil.move(manifestdir, dest)
+                        elif packtype == "skin_pack":
+                            cprint("skin pack detected")
+                            dest = os.path.join(skin_packdir, str(setuuid))
+                            shutil.move(manifestdir, dest)
+                        elif packtype == "world_template":
+                            cprint("world template detected")
+                            dest = os.path.join(world_templatesdir, str(setuuid))
+                            shutil.move(manifestdir, dest)
 
                 print(f"{puuid}\n {os.path.basename(zipname)} finished in {abs(starttime - time.time())}")
                 cprint(f"{os.path.basename(zipname)} finished in {abs(starttime - time.time()):.3f} seconds")
